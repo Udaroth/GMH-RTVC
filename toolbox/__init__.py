@@ -125,6 +125,9 @@ class Toolbox:
         self.ui.vocode_button.clicked.connect(self.vocode)
         self.ui.random_seed_checkbox.clicked.connect(self.update_seed_textbox)
 
+        # New generate with mellotron button
+        self.ui.generate_button_mellotron.clicked.connect(func)
+
         # UMAP legend
         self.ui.clear_button.clicked.connect(self.clear_utterances)
 
@@ -236,7 +239,7 @@ class Toolbox:
         specs = self.synthesizer.synthesize_spectrograms(texts, embeds)
         breaks = [spec.shape[1] for spec in specs]
         spec = np.concatenate(specs, axis=1)
-        
+
         self.ui.draw_spec(spec, "generated")
         self.current_generated = (self.ui.selected_utterance.speaker_name, spec, breaks, None)
         self.ui.set_loading(0)

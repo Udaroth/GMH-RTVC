@@ -21,3 +21,5 @@ encoder/saved_models/*
 cp_hifigan/*
 !vocoder/saved_models/pretrained/*
 !encoder/saved_models/pretrained.pt
+/mocking-bird-env/
+/dataset/

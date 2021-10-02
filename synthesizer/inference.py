@@ -126,7 +126,14 @@ class Synthesizer:
 
             # Inference
             _, mels, alignments = self._model.generate(chars, speaker_embeddings)
+
+            print(mels)
+            print(mels.device)
+            print(mels.grad_fn)
+
             mels = mels.detach().cpu().numpy()
+
+            print(mels)
             for m in mels:
                 # Trim silence from end of each spectrogram
                 while np.max(m[:, -1]) < hparams.tts_stop_threshold:

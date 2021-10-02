@@ -38,6 +38,10 @@ colormap = np.array([
 default_text = \
     "欢迎使用工具箱, 现已支持中文输入！"
 
+default_kwargs = \
+    "format: yaml\nmode: rtvc\naudio: 14\nspeaker: _\nvocoder: waveglow\nsigma: 1.0\ndenoiser_strength: " \
+    "1.2\ngriffinlim_iters: 30\n "
+
 
    
 class UI(QDialog):
@@ -361,6 +365,8 @@ class UI(QDialog):
         self.generate_button.setDisabled(False)
         self.synthesize_button.setDisabled(False)
 
+        self.generate_button_mellotron.setDisabled(False)
+
     def log(self, line, mode="newline"):
         if mode == "newline":
             self.logs.append(line)
@@ -410,6 +416,7 @@ class UI(QDialog):
         self.set_loading(0)
         self.play_button.setDisabled(True)
         self.generate_button.setDisabled(True)
+        self.generate_button_mellotron.setDisabled(True)
         self.synthesize_button.setDisabled(True)
         self.vocode_button.setDisabled(True)
         self.replay_wav_button.setDisabled(True)
@@ -579,6 +586,15 @@ class UI(QDialog):
             " This feature requires `webrtcvad` to be installed.")
         layout_seed.addWidget(self.trim_silences_checkbox, 0, 2, 1, 2)
         gen_layout.addLayout(layout_seed)
+
+
+        # New kwargs input field
+        self.kwargs_input = QPlainTextEdit(default_kwargs)
+        gen_layout.addWidget(self.kwargs_input, stretch=1)
+
+        self.generate_button_mellotron = QPushButton("Synthesize and vocode with Mellotron")
+        gen_layout.addWidget(self.generate_button_mellotron)
+        # End custom input fields
 
         self.loading_bar = QProgressBar()
         gen_layout.addWidget(self.loading_bar)
