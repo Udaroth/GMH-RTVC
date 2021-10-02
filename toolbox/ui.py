@@ -39,7 +39,7 @@ default_text = \
     "欢迎使用工具箱, 现已支持中文输入！"
 
 default_kwargs = \
-    "format: yaml\nmode: rtvc\naudio: 14\nspeaker: _\nvocoder: waveglow\nsigma: 1.0\ndenoiser_strength: " \
+    "format: yaml\nmode: rtvc\naudio: W:\Thesis\Assets\Result\Snippet input\original-input-snippet-23754.wav\nspeaker: _\nvocoder: waveglow\nsigma: 1.0\ndenoiser_strength: " \
     "1.2\ngriffinlim_iters: 30\n "
 
 

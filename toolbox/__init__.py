@@ -13,6 +13,7 @@ import torch
 import librosa
 import re
 from audioread.exceptions import NoBackendError
+import yaml
 
 # 默认使用wavernn
 vocoder = rnn_vocoder
@@ -61,6 +62,8 @@ class Toolbox:
         self.waves_list = []
         self.waves_count = 0
         self.waves_namelist = []
+
+        self.audio_path = None
 
         # Check for webrtcvad (enables removal of silences in vocoder output)
         try:
@@ -121,12 +124,12 @@ class Toolbox:
         # Generation
         func = lambda: self.synthesize() or self.vocode()
         self.ui.generate_button.clicked.connect(func)
+        func = lambda: self.synthesize_mellotron() or self.vocode()
+        self.ui.generate_button_mellotron.clicked.connect(func)
         self.ui.synthesize_button.clicked.connect(self.synthesize)
         self.ui.vocode_button.clicked.connect(self.vocode)
         self.ui.random_seed_checkbox.clicked.connect(self.update_seed_textbox)
 
-        # New generate with mellotron button
-        self.ui.generate_button_mellotron.clicked.connect(func)
 
         # UMAP legend
         self.ui.clear_button.clicked.connect(self.clear_utterances)
@@ -162,6 +165,8 @@ class Toolbox:
         else:
             name = fpath.name
             speaker_name = fpath.parent.name
+            print(fpath)
+            self.audio_path = fpath
 
         if fpath.suffix.lower() == ".mp3" and self.no_mp3_support:
                 self.ui.log("Error: No mp3 file argument was passed but an mp3 file was used")
@@ -173,6 +178,7 @@ class Toolbox:
         self.ui.log("Loaded %s" % name)
 
         self.add_real_utterance(wav, name, speaker_name)
+
         
     def record(self):
         wav = self.ui.record_one(encoder.sampling_rate, 5)
@@ -207,7 +213,52 @@ class Toolbox:
     def clear_utterances(self):
         self.utterances.clear()
         self.ui.draw_umap_projections(self.utterances)
-        
+
+
+    def synthesize_mellotron(self):
+        self.ui.log("Mellotron: Generating the mel spectrogram...")
+        self.ui.set_loading(1)
+
+        kwargs_str = self.ui.kwargs_input.toPlainText()
+        kwargs = yaml.load(kwargs_str)
+        text = self.ui.text_prompt.toPlainText()
+
+        print(kwargs)
+        print(text)
+
+        # Update the synthesizer random seed
+        if self.ui.random_seed_checkbox.isChecked():
+            seed = int(self.ui.seed_textbox.text())
+            self.ui.populate_gen_options(seed, self.trim_silences)
+        else:
+            seed = None
+
+        if seed is not None:
+            torch.manual_seed(seed)
+
+        # Synthesize the spectrogram
+        if self.synthesizer is None or seed is not None:
+            self.init_synthesizer()
+
+        texts = self.ui.text_prompt.toPlainText().split("\n")
+        punctuation = '！，。、,'  # punctuate and split/clean text
+        processed_texts = []
+        for text in texts:
+            for processed_text in re.sub(r'[{}]+'.format(punctuation), '\n', text).split('\n'):
+                if processed_text:
+                    processed_texts.append(processed_text.strip())
+        texts = processed_texts
+        embed = self.ui.selected_utterance.embed
+        embeds = [embed] * len(texts)
+        specs = self.synthesizer.synthesize_spectrograms(texts, embeds)
+        breaks = [spec.shape[1] for spec in specs]
+        spec = np.concatenate(specs, axis=1)
+
+        self.ui.draw_spec(spec, "generated")
+        self.current_generated = (self.ui.selected_utterance.speaker_name, spec, breaks, None)
+        self.ui.set_loading(0)
+
+
     def synthesize(self):
         self.ui.log("Generating the mel spectrogram...")
         self.ui.set_loading(1)
