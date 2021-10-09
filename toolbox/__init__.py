@@ -1,3 +1,4 @@
+from mellotron import sdk_api
 from toolbox.ui import UI
 from encoder import inference as encoder
 from synthesizer.inference import Synthesizer
@@ -10,9 +11,7 @@ import numpy as np
 import traceback
 import sys
 import torch
-import librosa
 import re
-from audioread.exceptions import NoBackendError
 import yaml
 
 # 默认使用wavernn
@@ -48,6 +47,10 @@ recognized_datasets = [
 
 #Maximum of generated wavs to keep on memory
 MAX_WAVES = 15
+
+_split_juzi_re = re.compile(r'(.+?[。！!？?；;：—，,、“”"‘’\'《》（）()【】\[\]]+)')
+_split_fenju_re = re.compile(r'(.+?[\W]+)')
+_zi_judge_re = re.compile(r'\w')
 
 class Toolbox:
     def __init__(self, datasets_root, enc_models_dir, syn_models_dir, voc_models_dir, seed, no_mp3_support):
@@ -214,6 +217,24 @@ class Toolbox:
         self.utterances.clear()
         self.ui.draw_umap_projections(self.utterances)
 
+    def split_text(self, text, maxlen=30):
+        """把长文本切分为若干个最长长度为maxlen的短文本。"""
+        out = []
+        for juzi in _split_juzi_re.split(text):
+            if 1 <= len(juzi) <= maxlen:
+                out.append(juzi)
+            elif len(juzi) > maxlen:
+                for fenju in _split_fenju_re.split(juzi):
+                    if 1 <= len(fenju) <= maxlen:
+                        out.append(fenju)
+                    elif len(fenju) >= maxlen:
+                        for start_idx in range(len(juzi) // maxlen + 1):
+                            out.append(fenju[start_idx * maxlen: (start_idx + 1) * maxlen])
+        out = [w for w in out if _zi_judge_re.search(w)]
+        return out
+
+    def mellotron_synthesis(self, text, **kwargs):
+        text_split_lst = self.split_text(text, kwargs.get('maxlen', 30))
 
     def synthesize_mellotron(self):
         self.ui.log("Mellotron: Generating the mel spectrogram...")
@@ -226,37 +247,52 @@ class Toolbox:
         print(kwargs)
         print(text)
 
-        # Update the synthesizer random seed
-        if self.ui.random_seed_checkbox.isChecked():
-            seed = int(self.ui.seed_textbox.text())
-            self.ui.populate_gen_options(seed, self.trim_silences)
-        else:
-            seed = None
-
-        if seed is not None:
-            torch.manual_seed(seed)
-
-        # Synthesize the spectrogram
-        if self.synthesizer is None or seed is not None:
-            self.init_synthesizer()
-
-        texts = self.ui.text_prompt.toPlainText().split("\n")
-        punctuation = '！，。、,'  # punctuate and split/clean text
-        processed_texts = []
-        for text in texts:
-            for processed_text in re.sub(r'[{}]+'.format(punctuation), '\n', text).split('\n'):
-                if processed_text:
-                    processed_texts.append(processed_text.strip())
-        texts = processed_texts
-        embed = self.ui.selected_utterance.embed
-        embeds = [embed] * len(texts)
-        specs = self.synthesizer.synthesize_spectrograms(texts, embeds)
+        specs = sdk_api.tts_sdk(text=text, **kwargs)
         breaks = [spec.shape[1] for spec in specs]
         spec = np.concatenate(specs, axis=1)
 
         self.ui.draw_spec(spec, "generated")
         self.current_generated = (self.ui.selected_utterance.speaker_name, spec, breaks, None)
         self.ui.set_loading(0)
+
+
+        # So essentially we're trying to return the specs equivalent, which we'll modify to create
+        # break and spec to finally pass back to our generated utterance global var
+
+
+
+
+        # Update the synthesizer random seed
+        # if self.ui.random_seed_checkbox.isChecked():
+        #     seed = int(self.ui.seed_textbox.text())
+        #     self.ui.populate_gen_options(seed, self.trim_silences)
+        # else:
+        #     seed = None
+        #
+        # if seed is not None:
+        #     torch.manual_seed(seed)
+        #
+        # # Synthesize the spectrogram
+        # if self.synthesizer is None or seed is not None:
+        #     self.init_synthesizer()
+        #
+        # texts = self.ui.text_prompt.toPlainText().split("\n")
+        # punctuation = '！，。、,'  # punctuate and split/clean text
+        # processed_texts = []
+        # for text in texts:
+        #     for processed_text in re.sub(r'[{}]+'.format(punctuation), '\n', text).split('\n'):
+        #         if processed_text:
+        #             processed_texts.append(processed_text.strip())
+        # texts = processed_texts
+        # embed = self.ui.selected_utterance.embed
+        # embeds = [embed] * len(texts)
+        # specs = self.synthesizer.synthesize_spectrograms(texts, embeds)
+        # breaks = [spec.shape[1] for spec in specs]
+        # spec = np.concatenate(specs, axis=1)
+        #
+        # self.ui.draw_spec(spec, "generated")
+        # self.current_generated = (self.ui.selected_utterance.speaker_name, spec, breaks, None)
+        # self.ui.set_loading(0)
 
 
     def synthesize(self):
