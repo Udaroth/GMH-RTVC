@@ -23,3 +23,6 @@ cp_hifigan/*
 !encoder/saved_models/pretrained.pt
 /mocking-bird-env/
 /dataset/
+resource/model/mellotron.kuangdd-rtvc.pt
+resource/model/waveglow.kuangdd.pt
+resource/reference_audio.tar
